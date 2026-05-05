@@ -1,0 +1,7 @@
+/.vscode
+/server/.venv
+/storage/*.mp4
+/server/__pycache__
+backup.txt
+*.bz2
+*.bak

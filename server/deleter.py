@@ -19,17 +19,20 @@ class Deleter:
             time.sleep(TIME_SLEEP)
     
     def delete_old_files(self):
-        now = time.time()
-        max_age = MAX_STORAGE_DAYS * 86400
+        now = datetime.now()
 
         for filename in os.listdir(self.storage_path):
-            filepath = os.path.join(self.storage_path, filename)
-
             if not filename.endswith('.mp4'):
                 continue
 
-            file_age = now - os.path.getctime(filepath)
-            if file_age > max_age:
+            filepath = os.path.join(self.storage_path, filename)
+            try:
+                file_date = datetime.strptime(filename[:-4], '%d-%m-%Y %H-%M-%S')
+            except ValueError:
+                continue
+
+            file_age = (now - file_date).days
+            if file_age > MAX_STORAGE_DAYS:
                 try:
                     os.remove(filepath)
                     print(f"{datetime.now().strftime('%d.%m.%Y %H.%M.%S')} Deleted old file: {filename}")

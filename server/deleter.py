@@ -27,7 +27,7 @@ class Deleter:
 
             filepath = os.path.join(self.storage_path, filename)
             try:
-                file_date = datetime.strptime(filename[:-4], '%d-%m-%Y %H-%M-%S')
+                file_date = datetime.strptime(filename[:-4], '%d.%m.%Y %H.%M.%S')
             except ValueError:
                 continue
 

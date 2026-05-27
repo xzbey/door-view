@@ -51,12 +51,18 @@ class Camera:
         print(f"Starting ffmpeg with command: {cmd}")
         return subprocess.Popen(cmd)
 
-    def _record_loop(self): # запускает хуйню выше в цикле, пока running true. Типа идет сейв по частям длиной segment_duration
+    def _record_loop(self, delay=5): # запускает хуйню выше в цикле, пока running true. Типа идет сейв по частям длиной segment_duration
         while self.running:
             process = self._start_ffmpeg()
             process.wait()
-            if self.running:
-                print("ffmpeg process ended, starting new segment...")
+            if not self.running:
+                break
+
+            if process.returncode != 0:
+                print(f"{self._timestamp()}: ffmpeg exited with code {process.returncode}, retrying...")
+                time.sleep(delay)
+            else:
+                print(f"{self._timestamp()}: ffmpeg segment recorded successfully")
 
 
     # ============= OpenCV СТРИМ =============

@@ -45,6 +45,7 @@ class Camera:
             #"-f", "dshow", # только для вебки
             "-i", str(self.camera_index),
             "-c", "copy", # без перекодирования
+            "-an", # без аудио
             "-t", str(self.segment_duration),
             "-y", # перезаписывать если файл есть
             path]

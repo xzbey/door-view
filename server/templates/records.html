@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>door-view</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="records">
+        <label for="records-list">Записи</label>
+        <select id="records-list">
+            {% for record in records %}
+                <option value="{{ record }}">{{ record }}</option>
+            {% endfor %}
+        </select>
+        <button onclick="window.location.href='/records/' + document.getElementById('records-list').value">Открыть</button>
+    </div>
+</body>
+</html>

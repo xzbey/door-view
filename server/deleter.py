@@ -1,6 +1,7 @@
 import os
 import time
 from datetime import datetime
+from utils import _timestamp
 import threading
 from config import MAX_STORAGE_DAYS, TIME_SLEEP
 
@@ -19,25 +20,23 @@ class Deleter:
             time.sleep(TIME_SLEEP)
     
     def delete_old_files(self):
-        now = datetime.now()
-
         for filename in os.listdir(self.storage_path):
             if not filename.endswith('.mp4'):
                 continue
 
             filepath = os.path.join(self.storage_path, filename)
             try:
-                file_date = datetime.strptime(filename[:-4], '%d.%m.%Y %H.%M.%S')
+                file_date = datetime.strptime(filename[:-4], '%d.%m.%Y_%H.%M.%S')
             except ValueError:
                 continue
 
-            file_age = (now - file_date).days
+            file_age = (datetime.now() - file_date).days
             if file_age > MAX_STORAGE_DAYS:
                 try:
                     os.remove(filepath)
-                    print(f"{datetime.now().strftime('%d.%m.%Y %H.%M.%S')} Deleted old file: {filename}")
+                    print(f"{_timestamp()} Deleted old file: {filename}")
                 except Exception as e:
-                    print(f"{datetime.now().strftime('%d.%m.%Y %H.%M.%S')} Error deleting file {filename}: {e}")
-    
+                    print(f"{_timestamp()} Error deleting file {filename}: {e}")
+
     def stop(self):
         self.running = False

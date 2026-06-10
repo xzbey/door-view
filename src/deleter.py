@@ -3,10 +3,10 @@ import time
 from datetime import datetime
 from utils import _timestamp
 import threading
-from config import MAX_STORAGE_DAYS, TIME_SLEEP
+from config import STORAGE_PATH, MAX_STORAGE_DAYS, TIME_SLEEP
 
 class Deleter:
-    def __init__(self, storage_path):
+    def __init__(self, storage_path=STORAGE_PATH):
         self.storage_path = storage_path
         self.running = False
 

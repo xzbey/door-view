@@ -1,0 +1,48 @@
+from flask import Flask, render_template, abort, send_file
+from camera import Camera
+from config import STORAGE_PATH, HLS_PATH, PORT
+from deleter import Deleter
+import os
+
+app = Flask(__name__)
+
+try:
+    camera = Camera()
+except Exception as e:
+    print(f"Error initializing camera: {e}")
+    exit(1)
+camera.start()
+
+deleter = Deleter()
+deleter.start()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/stream/<path:filename>')
+def live(filename):
+    path = os.path.join(STORAGE_PATH, HLS_PATH, filename)
+    if not os.path.exists(path):
+        abort(404)
+    mimetype = 'application/vnd.apple.mpegurl' if filename.endswith('.m3u8') else 'video/MP2T'
+    return send_file(path, mimetype=mimetype)
+
+@app.route('/records')
+def records():
+    return render_template('records.html', 
+                           records=sorted([f for f in os.listdir(STORAGE_PATH) if f.endswith('.mp4')], reverse=True))
+
+@app.route('/records/<path:filename>')
+def give_record(filename):
+    path = os.path.join(STORAGE_PATH, filename)
+    if not os.path.exists(path):
+        abort(404)
+    return send_file(path, mimetype='video/mp4')
+
+if __name__ == '__main__':
+    try:
+        app.run(host='0.0.0.0', port=PORT, debug=False)
+    finally:
+        camera.stop()
+        deleter.stop()

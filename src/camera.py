@@ -26,6 +26,8 @@ class Camera:
         self._hls_process = None
         self._hls_lock = threading.Lock()
 
+        self._monitor_storage_stop_event = threading.Event()
+
         self.fps, self.width, self.height = self._test_camera()
         self._validate_path()
         print(f"FPS: {self.fps}, Resolution: {self.width}x{self.height}")
@@ -85,6 +87,8 @@ class Camera:
             try:
                 os.remove(file_path)
                 print(f"{_timestamp()}: Disk low ({free_gb:.2f}GB free), deleted: {oldest_file}")
+            except FileNotFoundError:
+                continue
             except Exception as e:
                 print(f"{_timestamp()}: Failed to delete {oldest_file}: {e}")
                 return False
@@ -92,6 +96,17 @@ class Camera:
         print(f"{_timestamp()}: Reached max deletions ({max_deletions}), stopping")
         return False
 
+    def _monitor_storage(self, check_interval=600):
+        print(f"{_timestamp()}: Monitoring storage in background thread started")
+        while not self._monitor_storage_stop_event.is_set():
+            try:
+                self._check_free_space()
+            except Exception as e:
+                print(f"{_timestamp()}: Error in storage monitoring: {e}")
+            
+            if self._monitor_storage_stop_event.wait(timeout=check_interval):
+                break
+        print(f"{_timestamp()}: Monitoring storage thread stopped")
 
     # ============= ЗАХВАТ ФРЕЙМОВ (только для MOG2) =============
     def _capture_loop(self, delay=5): # читает фреймы из камеры и сохраняет в self.frame
@@ -266,11 +281,16 @@ class Camera:
         self._start_hls()
 
         if self.save_mode:
+            self._monitor_storage_stop_event.clear()
+
             self._capture_thread = threading.Thread(target=self._capture_loop, daemon=True)
             self._capture_thread.start()
             
             self._detect_thread = threading.Thread(target=self._detect_loop, daemon=True)
             self._detect_thread.start()
+
+            self._monitor_thread = threading.Thread(target=self._monitor_storage, daemon=True)
+            self._monitor_thread.start()
 
     
     def stop(self):
@@ -278,5 +298,6 @@ class Camera:
         if self.save_mode:
             self._capture_thread.join(timeout=5)
             self._detect_thread.join(timeout=5)
-        self._stop_recording()
+            self._monitor_storage_stop_event.set()
+            self._stop_recording()
         self._stop_hls()

@@ -1,7 +1,7 @@
 CAMERA_INDEX="rtsp://admin:xzbey42_@192.168.1.138/stream1"
+DETECTION_INDEX="rtsp://admin:xzbey42_@192.168.1.138/stream0"
 SAVE_MODE=True
-MAX_STORAGE_DAYS=7
-TIME_SLEEP=3600
+MIN_FREE_GB=5
 PORT=5000
 STORAGE_PATH="storage"
 HLS_PATH="stream"

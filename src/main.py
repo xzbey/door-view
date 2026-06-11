@@ -1,8 +1,8 @@
 from flask import Flask, render_template, abort, send_file
 from camera import Camera
 from config import STORAGE_PATH, HLS_PATH, PORT
-from deleter import Deleter
 import os
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -12,9 +12,6 @@ except Exception as e:
     print(f"Error initializing camera: {e}")
     exit(1)
 camera.start()
-
-deleter = Deleter()
-deleter.start()
 
 @app.route('/')
 def index():
@@ -31,7 +28,11 @@ def live(filename):
 @app.route('/records')
 def records():
     return render_template('records.html', 
-                           records=sorted([f for f in os.listdir(STORAGE_PATH) if f.endswith('.mp4')], reverse=True))
+                            records=sorted(
+                               [f for f in os.listdir(STORAGE_PATH) if f.endswith('.mp4')], 
+                               key=lambda x: datetime.strptime(x[:-4], '%d.%m.%Y_%H.%M.%S'),
+                               reverse=True)
+                            )
 
 @app.route('/records/<path:filename>')
 def give_record(filename):
@@ -45,4 +46,3 @@ if __name__ == '__main__':
         app.run(host='0.0.0.0', port=PORT, debug=False)
     finally:
         camera.stop()
-        deleter.stop()

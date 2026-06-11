@@ -60,12 +60,11 @@ class Camera:
         raise Exception(f"Failed to open camera after {retries} attempts")
 
 
-    def _check_free_space(self, min_free_gb=MIN_FREE_GB):
-        while True:
+    def _check_free_space(self, min_free_gb=MIN_FREE_GB, max_deletions=10):
+        for _ in range(max_deletions):
             free_gb = shutil.disk_usage(self.storage_path).free / (1024**3)
             if free_gb >= min_free_gb:
                 return True
-            print(f"{_timestamp()}: Not enough free space ({free_gb:.2f} GB), waiting...")
 
             files = []
             for f in os.listdir(self.storage_path):
@@ -85,10 +84,13 @@ class Camera:
             file_path = os.path.join(self.storage_path, oldest_file)
             try:
                 os.remove(file_path)
-                print(f"{_timestamp()}: Deleted old file {oldest_file} to free up space")
+                print(f"{_timestamp()}: Disk low ({free_gb:.2f}GB free), deleted: {oldest_file}")
             except Exception as e:
                 print(f"{_timestamp()}: Failed to delete {oldest_file}: {e}")
                 return False
+
+        print(f"{_timestamp()}: Reached max deletions ({max_deletions}), stopping")
+        return False
 
 
     # ============= ЗАХВАТ ФРЕЙМОВ (только для MOG2) =============
@@ -105,6 +107,8 @@ class Camera:
                 ret, frame = cap.read()
                 if not ret:
                     print(f"{_timestamp()}: Failed to read frame from detection stream, reconnecting")
+                    with self.lock:
+                        self.frame = None
                     break
 
                 with self.lock:
@@ -206,6 +210,13 @@ class Camera:
     # ============= HLS стримчик =============
     def _hls_loop(self, hls_path=HLS_PATH):
         path = os.path.join(self.storage_path, hls_path)
+
+        if os.path.exists(path):
+            try:
+                shutil.rmtree(path)
+            except Exception as e:
+                print(f"{_timestamp()}: Failed to clear HLS directory: {e}")
+
         os.makedirs(path, exist_ok=True)
 
         cmd = [

@@ -28,6 +28,10 @@ class Camera:
 
         self._monitor_storage_stop_event = threading.Event()
 
+        self._capture_thread = None
+        self._detect_thread = None
+        self._monitor_thread = None
+
         self.fps, self.width, self.height = self._test_camera()
         self._validate_path()
         print(f"FPS: {self.fps}, Resolution: {self.width}x{self.height}")
@@ -140,15 +144,28 @@ class Camera:
         # https://habr.com/ru/articles/786436/
         mog2 = cv2.createBackgroundSubtractorMOG2(history=history, varThreshold=varThreshold, detectShadows=False)
         
-        frame_count = 0
-        for _ in range(history*2):
+        print(f"{_timestamp()}: Waiting for camera...")
+        while self.running:
+            with self.lock:
+                frame = self.frame.copy() if self.frame is not None else None
+            if frame is not None and frame.std() > 2.0: 
+                break
+            time.sleep(0.5)
+
+        if not self.running:
+            return
+
+        print(f"{_timestamp()}: Camera ready, starting MOG2 warmup...")
+
+        # Теперь ебем только на реальных фреймах
+        for _ in range(history):
+            if not self.running:
+                return
             with self.lock:
                 frame = self.frame.copy() if self.frame is not None else None
             if frame is not None:
                 mog2.apply(frame)
-                frame_count += 1
             time.sleep(0.1)
-        print(f"{_timestamp()}: MOG2 warmup done ({frame_count}/{history*2} frames)")
         
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         while self.running:
@@ -219,7 +236,12 @@ class Camera:
 
     def _is_recording(self):
         with self._record_lock:
-            return self._record_process is not None and self._record_process.poll() is None
+            if self._record_process is None:
+                return False
+            if self._record_process.poll() is not None:
+                self._record_process = None
+                return False
+            return True
 
     
     # ============= HLS стримчик =============
@@ -252,8 +274,10 @@ class Camera:
             print(f"{_timestamp()}: Starting HLS ffmpeg")
             with self._hls_lock:
                 self._hls_process = subprocess.Popen(cmd)
+                process = self._hls_process
             
-            self._hls_process.wait()
+            process.wait()
+
             if self.running:
                 print(f"{_timestamp()}: HLS ffmpeg stopped unexpectedly, restarting in 5s...")
                 time.sleep(5)
@@ -295,9 +319,19 @@ class Camera:
     
     def stop(self):
         self.running = False
+
         if self.save_mode:
-            self._capture_thread.join(timeout=5)
-            self._detect_thread.join(timeout=5)
             self._monitor_storage_stop_event.set()
             self._stop_recording()
+
         self._stop_hls()
+
+        if self.save_mode:
+            if self._capture_thread:
+                self._capture_thread.join(timeout=2)
+
+            if self._detect_thread:
+                self._detect_thread.join(timeout=2)
+
+            if self._monitor_thread:
+                self._monitor_thread.join(timeout=2)

@@ -181,11 +181,11 @@ class Camera:
             _, mask_thresh = cv2.threshold(fg_mask, 180, 255, cv2.THRESH_BINARY)
             mask_clean = cv2.morphologyEx(mask_thresh, cv2.MORPH_OPEN, kernel)
             contours, _ = cv2.findContours(mask_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            motion_detected = any(cnt for cnt in contours if cv2.contourArea(cnt) > min_area)
+            motion_detected = any(cv2.contourArea(cnt) > min_area for cnt in contours)
 
             if motion_detected:
                 self._last_motion_time = time.time()
-                print(f"{_timestamp()}: Motion detected")
+                # print(f"{_timestamp()}: Motion detected")
                 if not self._is_recording():
                     print(f"{_timestamp()}: Starting recording due to motion")
                     self._start_recording()
@@ -217,6 +217,7 @@ class Camera:
                 "-c", "copy", # без перекодирования
                 "-an", # без аудио
                 "-y", # перезаписывать если файл есть
+                "-movflags", "frag_keyframe+empty_moov+default_base_moof",
                 path]
 
             print(f"{_timestamp()}: Starting ffmpeg: {path}")
@@ -248,13 +249,14 @@ class Camera:
     def _hls_loop(self, hls_path=HLS_PATH):
         path = os.path.join(self.storage_path, hls_path)
 
-        if os.path.exists(path):
-            try:
-                shutil.rmtree(path)
-            except Exception as e:
-                print(f"{_timestamp()}: Failed to clear HLS directory: {e}")
-
         os.makedirs(path, exist_ok=True)
+
+        for f in os.listdir(path):
+            file_path = os.path.join(path, f)
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                print(f"{_timestamp()}: Failed to remove HLS file {file_path}: {e}")
 
         cmd = [
             "ffmpeg",
@@ -319,19 +321,27 @@ class Camera:
     
     def stop(self):
         self.running = False
-
         if self.save_mode:
-            self._monitor_storage_stop_event.set()
-            self._stop_recording()
+            if self._capture_thread:
+                self._capture_thread.join(timeout=5)
+
+            if self._detect_thread:
+                self._detect_thread.join(timeout=5)
+
+            if self._monitor_thread:
+                self._monitor_storage_stop_event.set()
+                self._monitor_thread.join(timeout=5)
+
+        with self._record_lock:
+            if self._record_process:
+                print(f"{_timestamp()}: Record is online, stopping ffmpeg before exit...")
+                self._record_process.terminate()
+                try:
+                    self._record_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self._record_process.kill()
+                self._record_process = None
 
         self._stop_hls()
 
-        if self.save_mode:
-            if self._capture_thread:
-                self._capture_thread.join(timeout=2)
-
-            if self._detect_thread:
-                self._detect_thread.join(timeout=2)
-
-            if self._monitor_thread:
-                self._monitor_thread.join(timeout=2)
+        

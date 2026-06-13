@@ -3,7 +3,10 @@ from camera import Camera
 from config import STORAGE_PATH, HLS_PATH, PORT
 import os
 from datetime import datetime
+import atexit
 
+import logging
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
 app = Flask(__name__)
 
 try:
@@ -12,6 +15,11 @@ except Exception as e:
     print(f"Error initializing camera: {e}")
     exit(1)
 camera.start()
+
+@atexit.register
+def cleanup_on_exit():
+    print("Flask is closing, clearing resources...")
+    camera.stop()
 
 @app.route('/')
 def index():

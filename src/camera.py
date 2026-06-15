@@ -213,6 +213,8 @@ class Camera:
                 "ffmpeg",
                 "-loglevel", "error", # не спамить логи
                 "-rtsp_transport", "tcp", # tcp лучше для ip камеры
+                "-timeout", "10000000",
+                "-stimeout", "10000000",
                 "-i", str(self.camera_index),
                 "-c", "copy", # без перекодирования
                 "-an", # без аудио
@@ -262,6 +264,8 @@ class Camera:
             "ffmpeg",
             "-loglevel", "error",
             "-rtsp_transport", "tcp",
+            "-timeout", "10000000",
+            "-stimeout", "10000000",
             "-i", str(self.camera_index),
             "-c", "copy",
             "-an",

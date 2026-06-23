@@ -1,4 +1,4 @@
-from flask import Flask, render_template, abort, send_file
+from flask import Flask, render_template, abort, send_file, request
 from camera import Camera
 from config import STORAGE_PATH, HLS_PATH, PORT
 import os
@@ -47,7 +47,8 @@ def give_record(filename):
     path = os.path.join(STORAGE_PATH, filename)
     if not os.path.exists(path):
         abort(404)
-    return send_file(path, mimetype='video/mp4')
+    as_attachment = request.args.get('dl') == '1'
+    return send_file(path, mimetype='video/mp4', as_attachment=as_attachment, download_name=filename)
 
 if __name__ == '__main__':
     try:
